@@ -1,24 +1,26 @@
-using Dates: Millisecond
+using Dates: Second
 using TTLCache: TTL, Node
 using Test
 
+const period = Second(2)
+
 @testset "TTLCache.jl" begin
-    c = TTL(Millisecond(100))
-    @test c.ttl == Millisecond(100)
+    c = TTL(period)
+    @test c.ttl == period
     @test c.d isa Dict{Any, Node{Any}}
 
-    c = TTL{Int, String}(Millisecond(100))
+    c = TTL{Int, String}(period)
     @test c.d isa Dict{Int, Node{String}}
 
     c[0] = "!"
     @test c[0] == "!"
-    sleep(Millisecond(150))
+    sleep(period * 2)
     @test isempty(c)
     c[0] = "!"
-    sleep(Millisecond(50))
+    sleep(period / 2)
     touch(c, 0)
-    sleep(Millisecond(100))
+    sleep(period)
     @test c[0] == "!"
-    sleep(Millisecond(100))
+    sleep(period)
     @test isempty(c)
 end

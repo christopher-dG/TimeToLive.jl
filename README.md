@@ -7,7 +7,7 @@ A [TTL](https://en.wikipedia.org/wiki/Time_to_live) cache.
 ```julia
 julia> using Dates, TTLCache
 
-julia> cache = TTL{Int, String}(Second(5))
+julia> cache = TTL{Int, String}(Second(1))
 TTL{Int64,String}()
 
 julia> cache[0] = "foo"
@@ -16,7 +16,7 @@ julia> cache[0] = "foo"
 julia> cache[0]
 "foo"
 
-julia> sleep(5)
+julia> sleep(2)
 
 julia> cache[0]
 ERROR: KeyError: key 0 not found
