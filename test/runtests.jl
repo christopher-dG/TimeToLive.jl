@@ -32,4 +32,7 @@ const period = Second(2)
         count += 1
     end
     @test count == 5
+
+    c = convert(TTL{String, Int}, TTL(period))
+    @test c.d isa Dict{String, Node{Int}}
 end

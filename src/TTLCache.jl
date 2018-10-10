@@ -31,10 +31,16 @@ function delete_later(c::TTL{K, V}, k::K, v::Node{V}) where {K, V}
     haskey(c, k) && c.d[k].id === id && delete!(c, k)
 end
 
-Base.delete!(c::TTL, key) = delete!(c.d, key)
+# Note: This does NOT copy existing values!
+# It's only really here to allow this behaviour:
+#   julia> struct X c::TTL{Int, String} end
+#   julia> X(TTL(Second(1)))
+Base.convert(::Type{TTL{K, V}}, c::TTL) where {K, V} = TTL{K, V}(c.ttl)
+
+Base.delete!(c::TTL, key) = (delete!(c.d, key); return c)
 Base.eltype(c::TTL{K, V}) where {K, V} = Pair{K, V}
-Base.empty!(c::TTL{K, V}) where {K, V} = empty!(c.d)
-Base.filter!(f, c::TTL) = filter!(f, c.d)
+Base.empty!(c::TTL{K, V}) where {K, V} = (empty!(c.d); return c)
+Base.filter!(f, c::TTL) = (filter!(f, c.d); return c)
 Base.get(c::TTL{K, V}, key, default) where {K, V} = haskey(c, k) ? c[k] : default
 Base.getindex(c::TTL, k) = c.d[k].val
 Base.getkey(c::TTL{K, V}, key, default) where {K, V} = getkey(c.d, k)
@@ -44,7 +50,7 @@ Base.keys(c::TTL{K, V}) where {K, V} = keys(c.d)
 Base.length(c::TTL) = length(c.d)
 Base.pop!(c::TTL) = pop!(c.d)
 Base.pop!(c::TTL, key) = pop!(c.d, key)
-Base.sizehint!(c::TTL{K, V} where {K, V}, newsz) = sizehint!(c.d, newsz)
+Base.sizehint!(c::TTL{K, V} where {K, V}, newsz) = (sizehint!(c.d, newsz); return c)
 Base.values(c::TTL{K, V}) where {K, V} = map(x -> x.val, values(c.d))
 
 function Base.iterate(c::TTL)
