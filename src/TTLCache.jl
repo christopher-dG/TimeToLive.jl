@@ -47,7 +47,20 @@ Base.pop!(c::TTL, key) = pop!(c.d, key)
 Base.sizehint!(c::TTL{K, V} where {K, V}, newsz) = sizehint!(c.d, newsz)
 Base.values(c::TTL{K, V}) where {K, V} = map(x -> x.val, values(c.d))
 
-# TODO: Base.iterate.
+function Base.iterate(c::TTL)
+    isempty(c) && return nothing
+    ks = collect(keys(c.d))
+    k, n = iterate(ks)
+    return k => c[k], (ks, (k, n))
+end
+
+function Base.iterate(c::TTL, (ks, state))
+    state === nothing && return nothing
+    k, n = state
+    next = iterate(ks, n)
+    return k => c[k], (ks, next)
+end
+
 # TODO: Look for more useful Base functions to extend.
 
 function Base.setindex!(c::TTL{K, V}, v::V, k::K) where {K, V}

@@ -23,4 +23,13 @@ const period = Second(2)
     @test c[0] == "!"
     sleep(period)
     @test isempty(c)
+
+    c = TTL(period)
+    c[1] = c[2] = c[3] = c[3] = c[5] = "!"
+    count = 0
+    for pair in c
+        @test pair isa Pair{Int, String}
+        count += 1
+    end
+    @test count == 5
 end
