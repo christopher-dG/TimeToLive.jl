@@ -4,11 +4,11 @@ export TTL
 
 using Dates: Period
 
-mutable struct Node{V}
-    val::V
+struct Node{T}
+    v::T
     id::Symbol
 
-    Node{V}(val::V) where V = new(val, gensym())
+    Node{T}(v::T) where T = new(v, gensym())
 end
 
 """
@@ -42,7 +42,7 @@ Base.eltype(c::TTL{K, V}) where {K, V} = Pair{K, V}
 Base.empty!(c::TTL{K, V}) where {K, V} = (empty!(c.d); return c)
 Base.filter!(f, c::TTL) = (filter!(f, c.d); return c)
 Base.get(c::TTL{K, V}, key, default) where {K, V} = haskey(c, k) ? c[k] : default
-Base.getindex(c::TTL, k) = c.d[k].val
+Base.getindex(c::TTL, k) = c.d[k].v
 Base.getkey(c::TTL{K, V}, key, default) where {K, V} = getkey(c.d, k)
 Base.haskey(c::TTL, k) = haskey(c.d, k)
 Base.isempty(c::TTL) = isempty(c.d)
@@ -51,7 +51,7 @@ Base.length(c::TTL) = length(c.d)
 Base.pop!(c::TTL) = pop!(c.d)
 Base.pop!(c::TTL, key) = pop!(c.d, key)
 Base.sizehint!(c::TTL{K, V} where {K, V}, newsz) = (sizehint!(c.d, newsz); return c)
-Base.values(c::TTL{K, V}) where {K, V} = map(x -> x.val, values(c.d))
+Base.values(c::TTL{K, V}) where {K, V} = map(x -> x.v, values(c.d))
 
 function Base.iterate(c::TTL)
     isempty(c) && return nothing
@@ -82,7 +82,7 @@ Reset the expiry time for the value at `c[k]`.
 """
 function Base.touch(c::TTL{K, V}, k::K) where {K, V}
     return if haskey(c, k)
-        c.d[k].id = gensym()
+        c.d[k] = Node{V}(c.d[k].v)  # Change the ID.
         @async delete_later(c, k, c.d[k])
         c[k]
     else
@@ -94,7 +94,7 @@ Base.show(c::TTL) = show(stdout, c)
 function Base.show(io::IO, c::TTL{K, V}) where {K, V}
     # TODO: How to get the pretty formatted dict output?
     buf = IOBuffer()
-    show(buf, Dict{K, V}(k => v.val for (k, v) in c.d))
+    show(buf, Dict{K, V}(k => v.v for (k, v) in c.d))
     s = String(take!(buf))
     print(io, "TTL" * s[5:end])
 end
