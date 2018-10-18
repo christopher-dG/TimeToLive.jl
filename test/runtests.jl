@@ -5,34 +5,35 @@ using Test
 const period = Second(2)
 
 @testset "TimeToLive.jl" begin
-    c = TTL(period)
-    @test c.ttl == period
-    @test c.d isa Dict{Any, Node{Any}}
+    t = TTL(period)
+    @test t.ttl == period
+    @test t.d isa Dict{Any, Node{Any}}
 
-    c = TTL{Int, String}(period)
-    @test c.d isa Dict{Int, Node{String}}
+    t = TTL{Int, String}(period)
+    @test t.d isa Dict{Int, Node{String}}
 
-    c[0] = "!"
-    @test c[0] == "!"
+    t[0] = "!"
+    @test get(t, 0, nothing) == "!"
     sleep(period * 2)
-    @test isempty(c)
-    c[0] = "!"
-    sleep(period / 2)
-    touch(c, 0)
-    sleep(period)
-    @test c[0] == "!"
-    sleep(period)
-    @test isempty(c)
+    @test isempty(t)
 
-    c = TTL(period)
-    c[1] = c[2] = c[3] = c[3] = c[5] = "!"
+    t[0] = "!"
+    sleep(period / 2)
+    touch(t, 0)
+    sleep(period)
+    @test get(t, 0, nothing) == "!"
+    sleep(period)
+    @test isempty(t)
+
+    t = TTL(period)
+    t[1] = t[2] = t[3] = t[4] = t[5] = "!"
     count = 0
-    for pair in c
+    for pair in t
         @test pair isa Pair{Int, String}
         count += 1
     end
     @test count == 5
 
-    c = convert(TTL{String, Int}, TTL(period))
-    @test c.d isa Dict{String, Node{Int}}
+    t = convert(TTL{String, Int}, TTL(period))
+    @test t.d isa Dict{String, Node{Int}}
 end
