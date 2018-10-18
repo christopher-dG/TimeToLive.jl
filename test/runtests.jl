@@ -1,10 +1,10 @@
 using Dates: Second
-using TTLCache: TTL, Node
+using TimeToLive: TTL, Node
 using Test
 
 const period = Second(2)
 
-@testset "TTLCache.jl" begin
+@testset "TimeToLive.jl" begin
     c = TTL(period)
     @test c.ttl == period
     @test c.d isa Dict{Any, Node{Any}}

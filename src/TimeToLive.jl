@@ -1,4 +1,4 @@
-module TTLCache
+module TimeToLive
 
 export TTL
 
