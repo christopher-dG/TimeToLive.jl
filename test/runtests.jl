@@ -1,31 +1,34 @@
-using Dates: Second
+using Dates: Millisecond
 using TimeToLive: TTL, Node
 using Test
 
-const period = Second(2)
+const p = Millisecond(250)
 
 @testset "TimeToLive.jl" begin
-    t = TTL(period)
-    @test t.ttl == period
+    # Constructors.
+    t = TTL(p)
+    @test t.ttl == p
     @test t.d isa Dict{Any, Node{Any}}
-
-    t = TTL{Int, String}(period)
+    t = TTL{Int, String}(p)
     @test t.d isa Dict{Int, Node{String}}
 
+    # Basic expiry.
     t[0] = "!"
     @test get(t, 0, nothing) == "!"
-    sleep(period * 2)
+    sleep(2p)
     @test isempty(t)
 
+    # Refreshing expiry.
     t[0] = "!"
-    sleep(period / 2)
+    sleep(p/2)
     touch(t, 0)
-    sleep(period)
+    sleep(p)
     @test get(t, 0, nothing) == "!"
-    sleep(period)
+    sleep(2p)
     @test isempty(t)
 
-    t = TTL(period)
+    # Iteration.
+    t = TTL(p)
     t[1] = t[2] = t[3] = t[4] = t[5] = "!"
     count = 0
     for pair in t
@@ -34,6 +37,23 @@ const period = Second(2)
     end
     @test count == 5
 
-    t = convert(TTL{String, Int}, TTL(period))
+    # Conversion.
+    t = convert(TTL{String, Int}, TTL(p))
     @test t.d isa Dict{String, Node{Int}}
+
+    # Refresh on access.
+    t = TTL(p; refresh_on_access=true)
+    t[0] = "!"
+    sleep(p/2)
+    t[0]
+    sleep(p)
+    @test get(t, 0, nothing) == "!"
+
+    # Disabled refresh on access.
+    t = TTL(p; refresh_on_access=false)
+    t[0] = "!"
+    sleep(p/2)
+    t[0]
+    sleep(p)
+    @test get(t, 0, nothing) === nothing
 end
