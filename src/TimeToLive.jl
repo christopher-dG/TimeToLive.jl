@@ -16,17 +16,21 @@ end
     TTL{K, V}(ttl::Period; refresh_on_access::Bool=true) -> TTL{K, V}
 
 A [TTL](https://en.wikipedia.org/wiki/Time_to_live) cache.
+If `ttl` is `nothing`, then entries never expire.
 If `refresh_on_access` is set, then values' expiries are reset whenever they are accessed.
 """
 struct TTL{K, V}
     d::Dict{K, Node{V}}
-    ttl::Period
+    ttl::Union{Period, Nothing}
     refresh::Bool
 
-    function TTL{K, V}(ttl::Period; refresh_on_access::Bool=true) where {K, V}
+    function TTL{K, V}(
+        ttl::Union{Period, Nothing};
+        refresh_on_access::Bool=true,
+    ) where {K, V}
         return new(Dict{K, Node{V}}(), ttl, refresh_on_access)
     end
-    function TTL(ttl::Period; refresh_on_access::Bool=true)
+    function TTL(ttl::Union{Period, Nothing}; refresh_on_access::Bool=true)
         return TTL{Any, Any}(ttl; refresh_on_access=refresh_on_access)
     end
 end
@@ -69,7 +73,7 @@ end
 
 function Base.setindex!(t::TTL{K, V}, v, k) where {K, V}
     node = Node{V}(v)
-    @async delete_later(t, k, node)
+    t.ttl === nothing || @async delete_later(t, k, node)
     return t.d[k] = node
 end
 
@@ -79,6 +83,7 @@ end
 Reset the expiry time for the value at `t[k]`.
 """
 function Base.touch(t::TTL{K, V}, k) where {K, V}
+    t.ttl === nothing && return
     if haskey(t, k)
         t.d[k] = Node{V}(t.d[k].v)  # Change the ID.
         @async delete_later(t, k, t.d[k])

@@ -56,4 +56,11 @@ const p = Millisecond(250)
     t[0]
     sleep(p)
     @test get(t, 0, nothing) === nothing
+
+    # Disabled TTL.
+    t = TTL(nothing; refresh_on_access=true)
+    t[0] = "!"
+    id = t.d[0].id
+    t[0]
+    @test t.d[0].id === id
 end
