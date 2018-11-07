@@ -97,7 +97,8 @@ function Base.show(io::IO, t::TTL{K, V}) where {K, V}
     buf = IOBuffer()
     show(buf, Dict{K, V}(k => v.v for (k, v) in t.d))
     s = String(take!(buf))
-    print(io, "TTL($(t.ttl))" * s[5:end])
+    ttl = t.ttl === nothing ? "no expiry" : repr(t.ttl)
+    print(io, "TTL($ttl)" * s[5:end])
 end
 
 end
