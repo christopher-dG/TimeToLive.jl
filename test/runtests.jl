@@ -5,62 +5,90 @@ using Test
 const p = Millisecond(250)
 
 @testset "TimeToLive.jl" begin
-    # Constructors.
-    t = TTL(p)
-    @test t.ttl == p
-    @test t.d isa Dict{Any, Node{Any}}
-    t = TTL{Int, String}(p)
-    @test t.d isa Dict{Int, Node{String}}
-
-    # Basic expiry.
-    t[0] = "!"
-    @test get(t, 0, nothing) == "!"
-    sleep(2p)
-    @test isempty(t)
-
-    # Refreshing expiry.
-    t[0] = "!"
-    sleep(p/2)
-    touch(t, 0)
-    sleep(p)
-    @test get(t, 0, nothing) == "!"
-    sleep(2p)
-    @test isempty(t)
-
-    # Iteration.
-    t = TTL(p)
-    t[1] = t[2] = t[3] = t[4] = t[5] = "!"
-    count = 0
-    for pair in t
-        @test pair isa Pair{Int, String}
-        count += 1
+    @testset "Contstructors" begin
+        t = TTL(p)
+        @test t.ttl == p
+        @test t.d isa Dict{Any, Node{Any}}
+        t = TTL{Int, String}(p)
+        @test t.d isa Dict{Int, Node{String}}
     end
-    @test count == 5
 
-    # Conversion.
-    t = convert(TTL{String, Int}, TTL(p))
-    @test t.d isa Dict{String, Node{Int}}
+    @testset "Basic expiry" begin
+        t = TTL(p)
+        t[0] = "!"
+        @test get(t, 0, nothing) == "!"
+        sleep(2p)
+        @test isempty(t)
+    end
 
-    # Refresh on access.
-    t = TTL(p; refresh_on_access=true)
-    t[0] = "!"
-    sleep(p/2)
-    t[0]
-    sleep(p)
-    @test get(t, 0, nothing) == "!"
+    @testset "Refreshing expiry" begin
+        t = TTL(p)
+        t[0] = "!"
+        sleep(p/2)
+        touch(t, 0)
+        sleep(p)
+        @test get(t, 0, nothing) == "!"
+        sleep(2p)
+        @test isempty(t)
+    end
 
-    # Disabled refresh on access.
-    t = TTL(p; refresh_on_access=false)
-    t[0] = "!"
-    sleep(p/2)
-    t[0]
-    sleep(p)
-    @test get(t, 0, nothing) === nothing
+    @testset "Iteration" begin
+        t = TTL(p)
+        t[1] = t[2] = t[3] = t[4] = t[5] = "!"
+        count = 0
+        for pair in t
+            @test pair isa Pair{Int, String}
+            count += 1
+        end
+        @test count == 5
+    end
 
-    # Disabled TTL.
-    t = TTL(nothing; refresh_on_access=true)
-    t[0] = "!"
-    id = t.d[0].id
-    t[0]
-    @test t.d[0].id === id
+    @testset "Conversion" begin
+        t = convert(TTL{String, Int}, TTL(p))
+        @test t.d isa Dict{String, Node{Int}}
+    end
+
+    @testset "Refresh on access" begin
+        t = TTL(p; refresh_on_access=true)
+        t[0] = "!"
+        sleep(p/2)
+        t[0]
+        sleep(p)
+        @test get(t, 0, nothing) == "!"
+    end
+
+    @testset "Disabled refresh on access" begin
+        t = TTL(p; refresh_on_access=false)
+        t[0] = "!"
+        sleep(p/2)
+        t[0]
+        sleep(p)
+        @test get(t, 0, nothing) === nothing
+    end
+
+    @testset "Disabled TTL" begin
+        t = TTL(nothing; refresh_on_access=true)
+        t[0] = "!"
+        id = t.d[0].id
+        t[0]
+        @test t.d[0].id === id
+    end
+
+    @testset "Troublesome Base methods" begin
+        t = TTL{Int, Int}(nothing)
+        t[1] = 2
+        t[2] = 3
+        t[3] = 4
+        t[4] = 5
+        t[5] = 6
+
+        @test all(v -> v isa Int, values(t))
+        p = pop!(t)
+        @test p isa Pair{Int, Int}
+        t[p.first] = p.second
+        @test pop!(t, 4) == 5
+        @test !haskey(t, 4)
+        @test length(filter!(p -> p.second > 2, t)) == 3
+        @test !haskey(t, 1)
+    end
 end

@@ -50,7 +50,6 @@ Base.convert(::Type{TTL{K, V}}, t::TTL) where {K, V} = TTL{K, V}(t.ttl)
 Base.delete!(t::TTL, key) = (delete!(t.d, key); return t)
 Base.eltype(::TTL{K, V}) where {K, V} = Pair{K, V}
 Base.empty!(t::TTL{K, V}) where {K, V} = (empty!(t.d); return t)
-Base.filter!(f, t::TTL) = (filter!(f, t.d); return t)
 Base.get(t::TTL{K, V}, key, default) where {K, V} = haskey(t, key) ? t[key] : default
 Base.getindex(t::TTL, k) = (t.refresh && touch(t, k); return t.d[k].v)
 Base.getkey(t::TTL{K, V}, key, default) where {K, V} = getkey(t.d, k)
@@ -58,8 +57,8 @@ Base.haskey(t::TTL, k) = haskey(t.d, k)
 Base.isempty(t::TTL) = isempty(t.d)
 Base.keys(t::TTL{K, V}) where {K, V} = keys(t.d)
 Base.length(t::TTL) = length(t.d)
-Base.pop!(t::TTL) = pop!(t.d)
-Base.pop!(t::TTL, key) = pop!(t.d, key)
+Base.pop!(t::TTL) = (p = pop!(t.d); return p.first => p.second.v)
+Base.pop!(t::TTL, key) = pop!(t.d, key).v
 Base.sizehint!(t::TTL{K, V} where {K, V}, newsz) = (sizehint!(t.d, newsz); return t)
 Base.values(t::TTL{K, V}) where {K, V} = map(x -> x.v, values(t.d))
 
@@ -70,6 +69,14 @@ function Base.iterate(t::TTL, ks::AbstractVector=collect(keys(t.d)))
 end
 
 # TODO: Look for more useful Base functions to extend.
+
+function Base.filter!(f, t::TTL)
+    d = Dict(k => v.v for (k, v) in t.d)
+    filter!(f, d)
+    ks = Set(keys(d))
+    filter!(p -> p.first in ks, t.d)
+    return t
+end
 
 function Base.setindex!(t::TTL{K, V}, v, k) where {K, V}
     node = Node{V}(v)
