@@ -5,7 +5,7 @@ using Test
 const p = Millisecond(250)
 
 @testset "TimeToLive.jl" begin
-    @testset "Contstructors" begin
+    @testset "Constructors" begin
         t = TTL(p)
         @test t.ttl == p
         @test t.d isa Dict{Any, Node{Any}}
@@ -43,11 +43,6 @@ const p = Millisecond(250)
         @test count == 5
     end
 
-    @testset "Conversion" begin
-        t = convert(TTL{String, Int}, TTL(p))
-        @test t.d isa Dict{String, Node{Int}}
-    end
-
     @testset "Refresh on access" begin
         t = TTL(p; refresh_on_access=true)
         t[0] = "!"
@@ -66,16 +61,8 @@ const p = Millisecond(250)
         @test get(t, 0, nothing) === nothing
     end
 
-    @testset "Disabled TTL" begin
-        t = TTL(nothing; refresh_on_access=true)
-        t[0] = "!"
-        id = t.d[0].id
-        t[0]
-        @test t.d[0].id === id
-    end
-
     @testset "Troublesome Base methods" begin
-        t = TTL{Int, Int}(nothing)
+        t = TTL{Int, Int}(p)
         t[1] = 2
         t[2] = 3
         t[3] = 4
@@ -83,9 +70,9 @@ const p = Millisecond(250)
         t[5] = 6
 
         @test all(v -> v isa Int, values(t))
-        p = pop!(t)
-        @test p isa Pair{Int, Int}
-        t[p.first] = p.second
+        pair = pop!(t)
+        @test pair isa Pair{Int, Int}
+        t[pair.first] = pair.second
         @test pop!(t, 4) == 5
         @test !haskey(t, 4)
         @test length(filter!(p -> p.second > 2, t)) == 3
