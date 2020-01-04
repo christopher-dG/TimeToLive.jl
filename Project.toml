@@ -1,10 +1,13 @@
 name = "TimeToLive"
-uuid = "b0868c6e-cc3f-11e8-088f-97c6026971d7"
+uuid = "37f0c46e-897f-50ef-b453-b26c3eed3d6c"
 authors = ["Chris de Graaf <chrisadegraaf@gmail.com>"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
+[compat]
+julia = "1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
