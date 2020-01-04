@@ -2,82 +2,102 @@ module TimeToLive
 
 export TTL
 
-using Dates: Period
+using Base.Iterators: peel
+using Dates: DateTime, Period, now
 
 struct Node{T}
-    v::T
-    id::Symbol
-
-    Node{T}(v::T) where T = new(v, gensym())
+    value::T
+    expiry::DateTime
 end
 
-Base.:(==)(a::Node, b::Node) = a.v == b.v
+Base.:(==)(a::Node, b::Node) = a.value == b.value
+
+isexpired(v::Node) = now() > v.expiry
+isexpired(time::DateTime) = v::Node -> time > v.expiry
 
 """
-    TTL(ttl::Period; refresh_on_access::Bool=true) -> TTL{Any, Any}
-    TTL{K, V}(ttl::Period; refresh_on_access::Bool=true) -> TTL{K, V}
+    TTL(ttl::Period; refresh_on_access::Bool=true)
+    TTL{K, V}(ttl::Period; refresh_on_access::Bool=true)
 
-A [TTL](https://en.wikipedia.org/wiki/Time_to_live) cache.
+An associative [TTL](https://en.wikipedia.org/wiki/Time_to_live) cache.
 If `refresh_on_access` is set, expiries are reset whenever they are accessed.
 """
-struct TTL{K, V} <: AbstractDict{K, V}
-    d::Dict{K, Node{V}}
-    ttl::Period
+struct TTL{K, V, P<:Period} <: AbstractDict{K, V}
+    dict::Dict{K, Node{V}}
+    ttl::P
     refresh::Bool
 
-    function TTL{K, V}(ttl::Period; refresh_on_access::Bool=true) where {K, V}
-        return new(Dict{K, Node{V}}(), ttl, refresh_on_access)
-    end
-    function TTL(ttl::Period; refresh_on_access::Bool=true)
-        return TTL{Any, Any}(ttl; refresh_on_access=refresh_on_access)
-    end
+    TTL{K, V}(ttl::P; refresh_on_access::Bool=true) where {K, V, P <: Period} =
+        new{K, V, P}(Dict{K, Node{V}}(), ttl, refresh_on_access)
+    TTL(ttl::Period; refresh_on_access::Bool=true) =
+        TTL{Any, Any}(ttl; refresh_on_access=refresh_on_access)
 end
 
-# TODO: These functions have race conditions.
-function delete_later(t::TTL, k, v::Node)
-    id = v.id
-    sleep(t.ttl)
-    haskey(t, k) && t.d[k].id === id && delete!(t, k)
-end
-Base.get(t::TTL, key, default) = haskey(t.d, key) ? t.d[key].v : default
-Base.delete!(t::TTL, key) = (delete!(t.d, key); t)
-Base.empty!(t::TTL) = (empty!(t.d); t)
-Base.getindex(t::TTL, k) = (t.refresh && touch(t, k); t.d[k].v)
-Base.getkey(t::TTL, key, default) = getkey(t.d, k)
-Base.length(t::TTL) = length(t.d)
-Base.pop!(t::TTL) = (p = pop!(t.d); p.first => p.second.v)
-Base.pop!(t::TTL, key) = pop!(t.d, key).v
+Base.delete!(t::TTL, key) = (delete!(t.dict, key); t)
+Base.empty!(t::TTL) = (empty!(t.dict); t)
+Base.get(f, t::TTL, key) = haskey(t, key) ? t[key] : f()
+Base.get!(t::TTL, key, default) = haskey(t, key) ? t[key] : (t[key] = default)
+Base.length(t::TTL) = count(!isexpired(now()), values(t.dict))
 Base.push!(t::TTL, p::Pair) = (t[p.first] =  p.second; t)
-Base.sizehint!(t::TTL, newsz) = (sizehint!(t.d, newsz); t)
-Base.sort(t::TTL) = sort(Dict(collect(t)))
+Base.setindex!(t::TTL{K, V}, v, k) where {K, V} = t.dict[k] = Node{V}(v, now() + t.ttl)
+Base.sizehint!(t::TTL, newsz) = (sizehint!(t.dict, newsz); t)
 
-function Base.iterate(t::TTL, ks=keys(t.d))
+function Base.pop!(t::TTL)
+    p = pop!(t.dict)
+    return isexpired(p.second) ? pop!(t) : p.first => p.second.value
+end
+
+function Base.pop!(t::TTL, key)
+    v = pop!(t.dict, key)
+    isexpired(v) && throw(KeyError(key))
+    return v.value
+end
+
+function Base.get(t::TTL, key, default)
+    haskey(t.dict, key) || return default
+    v = t.dict[key]
+    if isexpired(v)
+        delete!(t, key)
+        return default
+    end
+    t.refresh && (t[key] = v.value)
+    return v.value
+end
+
+function Base.getkey(t::TTL, key, default)
+    return if haskey(t, key)
+        if isexpired(t.dict[key])
+            delete!(t, key)
+            default
+        else
+            key
+        end
+    else
+        default
+    end
+end
+
+function Base.iterate(t::TTL, ks=keys(t.dict))
     isempty(ks) && return nothing
-    k = first(ks)
-    return k => t.d[k].v, Iterators.drop(ks, 1)
+    k, rest = peel(ks)
+    v = t.dict[k]
+    return if isexpired(v)
+        delete!(t, k)
+        iterate(t, rest)
+    else
+        k => v.value, rest
+    end
 end
 
-function Base.setindex!(t::TTL{K, V}, v, k) where {K, V}
-    node = Node{V}(v)
-    @async delete_later(t, k, node)
-    return t.d[k] = node
+function Base.getindex(t::TTL, key)
+    v = t.dict[key]
+    if isexpired(v)
+        delete!(t, key)
+        throw(KeyError(key))
+    elseif t.refresh
+        t[key] = v.value
+    end
+    return v.value
 end
-
-# Extras + restrictions.
-
-"""
-    touch(t::TTL, k)
-
-Reset the expiry time for the value at `t[k]`.
-"""
-function Base.touch(t::TTL{K, V}, k) where {K, V}
-    t.d[k] = Node{V}(t.d[k].v)  # Change the ID.
-    @async delete_later(t, k, t.d[k])
-    return nothing
-end
-
-# There's no way to properly copy the deletion tasks.
-Base.copy(::TTL) = error("TTL cannot be copied")
-Base.deepcopy(::TTL) = error("TTL cannot be copied")
 
 end
