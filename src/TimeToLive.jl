@@ -10,8 +10,6 @@ struct Node{T}
     expiry::DateTime
 end
 
-Base.:(==)(a::Node, b::Node) = a.value == b.value
-
 isexpired(v::Node) = now() > v.expiry
 isexpired(time::DateTime) = v::Node -> time > v.expiry
 
